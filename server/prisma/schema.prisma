@@ -1,0 +1,273 @@
+// Trading Agent — Prisma schema (Phase 1)
+// Prices/quantities use Float for MVP simplicity. Production should move
+// money fields to Decimal for exactness.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AssetType {
+  CRYPTO
+  STOCK
+}
+
+enum UserTradingMode {
+  SPOT               // long only, 1x, safest
+  LEVERAGE_ONLY      // leverage, shorts allowed
+}
+
+enum Direction {
+  LONG
+  SHORT
+  FLAT
+}
+
+enum TradeStatus {
+  OPEN
+  CLOSED
+}
+
+// ---------------------------------------------------------------------------
+// User — authenticated via MetaMask wallet signature (no password needed).
+// ---------------------------------------------------------------------------
+model User {
+  id            Int             @id @default(autoincrement())
+  walletAddress String          @unique  // lowercase 0x address
+  nonce         String          @default("")  // random challenge for signature
+  tradingMode   UserTradingMode @default(SPOT)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([walletAddress])
+}
+
+// ---------------------------------------------------------------------------
+// Watchlist — the universe the agent scans. The agent picks from these.
+// ---------------------------------------------------------------------------
+model Asset {
+  id        Int       @id @default(autoincrement())
+  symbol    String    @unique // e.g. "BTC/USD"
+  name      String
+  type      AssetType @default(CRYPTO)
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+
+  candles Candle[]
+  scores  AssetScore[]
+  trades  Trade[]
+
+  @@index([active])
+}
+
+// ---------------------------------------------------------------------------
+// Candle — OHLCV history (from mock provider or a real source like Alpaca).
+// ---------------------------------------------------------------------------
+model Candle {
+  id        Int      @id @default(autoincrement())
+  assetId   Int
+  asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  timeframe String   @default("1m") // "1m","5m","1h","1d"...
+  timestamp DateTime
+  open      Float
+  high      Float
+  low       Float
+  close     Float
+  volume    Float
+
+  @@unique([assetId, timeframe, timestamp])
+  @@index([assetId, timeframe, timestamp])
+}
+
+// ---------------------------------------------------------------------------
+// AgentDecision — one full scan→rank→decide cycle. Fully auditable.
+// ---------------------------------------------------------------------------
+model AgentDecision {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  // human-readable summary of what the agent did this cycle
+  summary   String
+  // the action taken: e.g. "ENTER BTC/USD", "SWITCH ETH->SOL", "HOLD", "FLAT"
+  action    String
+  // the full ranked leaderboard + reasoning snapshot for this cycle
+  scores    AssetScore[]
+
+  @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// AssetScore — the agent's confidence in one asset during one cycle.
+// This doubles as confidence-over-time history (chart confidence timeline).
+// ---------------------------------------------------------------------------
+model AssetScore {
+  id         Int           @id @default(autoincrement())
+  decisionId Int
+  decision   AgentDecision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  assetId    Int
+  asset      Asset         @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  confidence Float     // 0..100 overall probability-of-profit estimate
+  direction  Direction // LONG / SHORT / FLAT
+  price      Float     // price at scoring time
+
+  // sub-scores that compose the overall confidence (0..100 each)
+  technical  Float @default(0)
+  sentiment  Float @default(0)
+  whale      Float @default(0)
+  momentum   Float @default(0)
+
+  // array of human-readable reasons, e.g. ["RSI oversold (28)", "VWAP reclaim"]
+  reasons    Json
+
+  createdAt  DateTime @default(now())
+
+  @@index([assetId, createdAt])
+  @@index([decisionId])
+}
+
+// ---------------------------------------------------------------------------
+// Trade — a paper trade, with the full reasoning context for learning.
+// ---------------------------------------------------------------------------
+model Trade {
+  id        Int         @id @default(autoincrement())
+  assetId   Int
+  asset     Asset       @relation(fields: [assetId], references: [id])
+  direction Direction   // LONG or SHORT
+  status    TradeStatus @default(OPEN)
+
+  qty            Float
+  entryPrice     Float
+  entryTime      DateTime  @default(now())
+  entryConfidence Float
+  leverage       Int       @default(1)
+  entryReasons   Json      // human-readable reasons present at entry
+  entrySignals   Json?     // named signals at entry (for learning attribution)
+  regime         String?   // market regime at entry: trending/ranging/choppy
+
+  source         String    @default("agent") // "agent" | "manual"
+  exchange       String    @default("paper") // "paper" | "hyperliquid"
+  exchangeOrderId String?
+  stopLoss       Float?
+  takeProfit     Float?
+
+  exitPrice  Float?
+  exitTime   DateTime?
+  exitReason String?   // "take_profit","stop_loss","switch","thesis_invalidated"
+
+  pnl    Float?  // realized $ P&L (paper)
+  pnlPct Float?  // realized % return
+
+  // populated by the learning system after close
+  mistakeTags Json?  // e.g. ["bought_into_resistance","switched_too_early"]
+
+  createdAt DateTime @default(now())
+
+  @@index([status])
+  @@index([assetId, status])
+}
+
+// ---------------------------------------------------------------------------
+// PortfolioSnapshot — equity curve over time.
+// ---------------------------------------------------------------------------
+model PortfolioSnapshot {
+  id                 Int      @id @default(autoincrement())
+  createdAt          DateTime @default(now())
+  cash               Float
+  openPositionsValue Float
+  equity             Float
+  realizedPnl        Float    @default(0)
+  openTrades         Int      @default(0)
+
+  @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Signal — a named signal whose reliability the agent learns over time.
+// ---------------------------------------------------------------------------
+model Signal {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique // e.g. "rsi_oversold"
+  category    String   // "technical","sentiment","whale","momentum"
+  reliability Float    @default(50) // 0..100, starts neutral
+  wins        Int      @default(0)
+  losses      Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  outcomes SignalOutcome[]
+}
+
+// ---------------------------------------------------------------------------
+// SignalOutcome — links a signal occurrence to a trade result (for learning).
+// ---------------------------------------------------------------------------
+model SignalOutcome {
+  id        Int      @id @default(autoincrement())
+  signalId  Int
+  signal    Signal   @relation(fields: [signalId], references: [id], onDelete: Cascade)
+  tradeId   Int
+  won       Boolean
+  pnlPct    Float
+  createdAt DateTime @default(now())
+
+  @@index([signalId])
+  @@index([tradeId])
+}
+
+// ---------------------------------------------------------------------------
+// Lesson — auto-generated mistake patterns. The "never repeat" memory.
+// ---------------------------------------------------------------------------
+model Lesson {
+  id          Int      @id @default(autoincrement())
+  category    String   @unique // e.g. "bought_into_resistance"
+  description String
+  occurrences Int      @default(1)
+  totalPnl    Float    @default(0) // cumulative damage from this mistake
+  severity    Float    @default(0) // computed impact score
+  active      Boolean  @default(true) // is the agent currently guarding against it
+  lastSeen    DateTime @default(now())
+  createdAt   DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// StrategyWeight — historical record of the decision weights (adaptation).
+// ---------------------------------------------------------------------------
+model StrategyWeight {
+  id        Int      @id @default(autoincrement())
+  technical Float    @default(0.40)
+  sentiment Float    @default(0.25)
+  whale     Float    @default(0.20)
+  momentum  Float    @default(0.15)
+  reason    String? // why the weights changed
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// AgentConfig — single-row tunable guardrails for the agent.
+// ---------------------------------------------------------------------------
+model AgentConfig {
+  id Int @id @default(1)
+
+  startingCapital      Float @default(200)
+  confidenceThreshold  Float @default(65)    // min confidence to act
+  maxConcurrent        Int   @default(3)     // max open positions
+  riskPerTradePct      Float @default(2)     // % of equity risked per trade
+  maxDailyDrawdownPct  Float @default(6)     // stop for the day if hit
+  maxSwitchesPerDay    Int   @default(6)     // anti-churn
+  cooldownBars         Int   @default(5)     // bars to wait after a loss on an asset
+  switchEdgeMargin     Float @default(8)     // new conf must beat held conf by this much
+  takeProfitPct        Float @default(6)
+  stopLossPct          Float @default(3)
+  maxLeverage          Int   @default(5)     // safety cap — agent decides within this
+  minHoldBars          Int   @default(6)     // min cycles before confidence_faded can exit
+  allowLeverage        Boolean @default(true) // global kill-switch: false = spot only
+  minCycleSeconds      Int   @default(15)    // fastest the loop can run
+  maxCycleSeconds      Int   @default(120)   // slowest the loop can run
+
+  paused    Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+}

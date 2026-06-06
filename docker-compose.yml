@@ -1,0 +1,25 @@
+# Local dev Postgres for the trading agent.
+# Dev-only credentials — safe to commit, NOT a production secret.
+# Runs on host port 5433 to avoid colliding with a local Postgres.app on 5432.
+services:
+  db:
+    image: postgres:18
+    container_name: trading_agent_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: trader
+      POSTGRES_PASSWORD: trader_dev_pw
+      POSTGRES_DB: trading_agent
+    ports:
+      - "5433:5432"
+    volumes:
+      # PG18+ images store data in a versioned subdir; mount the parent.
+      - trading_pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trader -d trading_agent"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  trading_pgdata:

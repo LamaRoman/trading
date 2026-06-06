@@ -1,0 +1,21 @@
+{
+  "name": "trading-agent",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Autonomous paper-trading agent that learns from its mistakes",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w server",
+    "dev:server": "npm run dev -w server",
+    "dev:web": "npm run dev -w web",
+    "build": "npm run build -w server",
+    "build:web": "npm run build -w web",
+    "db:push": "npm run db:push -w server",
+    "db:studio": "npm run db:studio -w server",
+    "db:seed": "npm run db:seed -w server",
+    "agent:cycle": "npm run agent:cycle -w server"
+  }
+}
