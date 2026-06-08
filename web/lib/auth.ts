@@ -113,6 +113,40 @@ export function shortAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
+/** Store a referral code from URL param (e.g. ?ref=ABC123). */
+export function captureReferral() {
+  if (typeof window === 'undefined') return;
+  const params = new URLSearchParams(window.location.search);
+  const ref = params.get('ref');
+  if (ref) localStorage.setItem('trading_referral', ref.toUpperCase());
+}
+
+/** Get stored referral code (if any). */
+export function getPendingReferral(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('trading_referral');
+}
+
+/** Clear pending referral (after it's been applied). */
+export function clearPendingReferral() {
+  localStorage.removeItem('trading_referral');
+}
+
+/** Apply a pending referral code after login. */
+export async function applyPendingReferral(): Promise<void> {
+  const code = getPendingReferral();
+  if (!code) return;
+  try {
+    const res = await authFetch('/api/auth/referral/apply', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    });
+    if (res.ok) clearPendingReferral();
+  } catch {
+    // Silently fail — might already have a referrer
+  }
+}
+
 /** Live mode (Hyperliquid) toggle — stored separately from auth. */
 export function isLiveMode(): boolean {
   if (typeof window === 'undefined') return false;

@@ -40,10 +40,15 @@ model User {
   walletAddress String          @unique  // lowercase 0x address
   nonce         String          @default("")  // random challenge for signature
   tradingMode   UserTradingMode @default(SPOT)
+  referralCode  String?         @unique  // shareable code e.g. "ABC123"
+  referredById  Int?            // FK to the user who referred this one
+  referredBy    User?           @relation("Referrals", fields: [referredById], references: [id])
+  referrals     User[]          @relation("Referrals")
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
   @@index([walletAddress])
+  @@index([referralCode])
 }
 
 // ---------------------------------------------------------------------------
@@ -153,13 +158,17 @@ model Trade {
   exchangeOrderId String?
   stopLoss       Float?
   takeProfit     Float?
+  addedMargin    Float     @default(0) // cumulative margin added/removed by user
 
   exitPrice  Float?
   exitTime   DateTime?
   exitReason String?   // "take_profit","stop_loss","switch","thesis_invalidated"
 
-  pnl    Float?  // realized $ P&L (paper)
+  pnl    Float?  // realized $ P&L (paper) — after fees
   pnlPct Float?  // realized % return
+  grossPnl    Float?  // P&L before fee deduction
+  builderFee  Float   @default(0) // fee collected on this trade
+  referralFee Float   @default(0) // portion of fee credited to referrer
 
   // populated by the learning system after close
   mistakeTags Json?  // e.g. ["bought_into_resistance","switched_too_early"]
@@ -183,6 +192,29 @@ model PortfolioSnapshot {
   openTrades         Int      @default(0)
 
   @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// WalletTransaction — deposit/withdrawal/fee history for the agent wallet.
+// ---------------------------------------------------------------------------
+enum WalletTxType {
+  DEPOSIT
+  WITHDRAWAL
+  FEE
+  ADJUSTMENT
+}
+
+model WalletTransaction {
+  id        Int          @id @default(autoincrement())
+  type      WalletTxType
+  amount    Float        // positive = inflow, negative = outflow
+  balance   Float        // running balance after this tx
+  note      String?      // e.g. "initial deposit", "builder fee on trade #5"
+  tradeId   Int?         // optional link to a trade
+  createdAt DateTime     @default(now())
+
+  @@index([createdAt])
+  @@index([type])
 }
 
 // ---------------------------------------------------------------------------
@@ -265,6 +297,9 @@ model AgentConfig {
   maxLeverage          Int   @default(5)     // safety cap — agent decides within this
   minHoldBars          Int   @default(6)     // min cycles before confidence_faded can exit
   allowLeverage        Boolean @default(true) // global kill-switch: false = spot only
+  builderFeePct        Float   @default(0.1)  // % fee on trade notional (e.g. 0.1 = 0.1%)
+  referralSharePct     Float   @default(20)   // % of builder fee shared with referrer (e.g. 20 = 20%)
+  builderAddress       String  @default("")   // wallet address for Hyperliquid builder fee
   minCycleSeconds      Int   @default(15)    // fastest the loop can run
   maxCycleSeconds      Int   @default(120)   // slowest the loop can run
 

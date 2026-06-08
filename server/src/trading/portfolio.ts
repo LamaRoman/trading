@@ -14,6 +14,9 @@ export interface OpenPosition {
   upnlPct: number;
   entryConfidence: number;
   leverage: number;
+  effectiveLeverage: number;
+  margin: number;
+  addedMargin: number;
   stopLoss: number | null;
   takeProfit: number | null;
   liqPrice: number | null;
@@ -62,18 +65,19 @@ export async function getPortfolio(
     const lev = t.leverage || 1;
     const dirMul = t.direction === 'LONG' ? 1 : -1;
     const u = (price - t.entryPrice) * t.qty * dirMul;
-    const margin = (t.entryPrice * t.qty) / lev;
-    reserved += margin;
+    const baseMargin = (t.entryPrice * t.qty) / lev;
+    const totalMargin = baseMargin + (t.addedMargin ?? 0);
+    reserved += totalMargin;
     upnl += u;
 
-    // Liquidation price: where margin is fully wiped
-    // LONG:  entry × (1 - 1/lev)  — price falls to zero margin
-    // SHORT: entry × (1 + 1/lev)  — price rises to zero margin
-    // 1x:    no liquidation
-    const liqPrice = lev > 1
+    const notional = t.entryPrice * t.qty;
+    const effLev = totalMargin > 0 ? notional / totalMargin : lev;
+
+    // Liquidation price uses effective leverage (accounts for added/removed margin)
+    const liqPrice = effLev > 1
       ? t.direction === 'LONG'
-        ? t.entryPrice * (1 - 1 / lev)
-        : t.entryPrice * (1 + 1 / lev)
+        ? t.entryPrice * (1 - 1 / effLev)
+        : t.entryPrice * (1 + 1 / effLev)
       : null;
 
     return {
@@ -84,11 +88,14 @@ export async function getPortfolio(
       qty: t.qty,
       entryPrice: t.entryPrice,
       price,
-      notional: t.entryPrice * t.qty,
+      notional,
       upnl: u,
       upnlPct: (price / t.entryPrice - 1) * 100 * dirMul,
       entryConfidence: t.entryConfidence,
       leverage: lev,
+      effectiveLeverage: parseFloat(effLev.toFixed(2)),
+      margin: totalMargin,
+      addedMargin: t.addedMargin ?? 0,
       stopLoss: t.stopLoss,
       takeProfit: t.takeProfit,
       liqPrice,

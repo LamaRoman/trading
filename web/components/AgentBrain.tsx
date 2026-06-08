@@ -29,10 +29,10 @@ export default function AgentBrain() {
         <h2>Strategy Weights (self-adapted)</h2>
         {w ? (
           <>
-            <WBar label="Technical" v={w.technical} c="#3b82f6" />
+            <WBar label="Technical" v={w.technical} c="#3b9eff" />
             <WBar label="Sentiment" v={w.sentiment} c="#8b97a8" />
-            <WBar label="Whale" v={w.whale} c="#a855f7" />
-            <WBar label="Momentum" v={w.momentum} c="#16c784" />
+            <WBar label="Whale" v={w.whale} c="#3ecf8e" />
+            <WBar label="Momentum" v={w.momentum} c="#5cc8ff" />
           </>
         ) : (
           <div className="empty">no data yet</div>

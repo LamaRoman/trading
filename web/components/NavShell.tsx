@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import { usePoll, postJSON } from '../lib/api';
-import type { Overview } from '../lib/api';
 import WalletConnect from './WalletConnect';
 import TradingSettings from './TradingSettings';
-import { loadUser, isLiveMode } from '../lib/auth';
+import TickerStrip from './TickerStrip';
+import Footer from './Footer';
+import { loadUser } from '../lib/auth';
 import type { AuthUser } from '../lib/auth';
 
 const NAV = [
@@ -14,33 +14,25 @@ const NAV = [
   { href: '/trade',         label: 'Trade' },
   { href: '/history',       label: 'History' },
   { href: '/intelligence',  label: 'Intelligence' },
+  { href: '/wallet',        label: 'Wallet' },
   { href: '/leaderboard',   label: 'Leaderboard' },
 ];
 
 export default function NavShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const ov = usePoll<Overview>('/api/overview', 3000);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
-  const [liveMode, setLiveModeState] = useState(false);
 
   useEffect(() => {
     setAuthUser(loadUser());
-    setLiveModeState(isLiveMode());
   }, []);
-
-  const badge = !authUser ? 'DEMO' : liveMode ? 'LIVE' : 'PAPER';
-  const pf = ov?.portfolio;
 
   return (
     <div className="shell-v">
-      {/* Top navigation bar */}
       <header className="topnav">
-        {/* Left: brand + nav links */}
         <div className="topnav-left">
           <a href="/" className="topnav-brand">
             <span className="topnav-logo">⬡</span>
             <span className="topnav-title">TradeAgent</span>
-            <span className={`tag ${badge.toLowerCase()}`}>{badge}</span>
           </a>
 
           <nav className="topnav-links">
@@ -56,45 +48,20 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
           </nav>
         </div>
 
-        {/* Center: portfolio stats */}
-        <div className="topnav-stats">
-          <div className="topnav-stat">
-            <span className="topnav-stat-label">Equity</span>
-            <span className="topnav-stat-value">{pf ? `$${pf.equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}</span>
-          </div>
-          <div className="topnav-stat">
-            <span className="topnav-stat-label">Return</span>
-            <span className={`topnav-stat-value ${pf && pf.totalReturnPct >= 0 ? 'up' : 'down'}`}>
-              {pf ? `${pf.totalReturnPct >= 0 ? '+' : ''}${pf.totalReturnPct.toFixed(2)}%` : '—'}
-            </span>
-          </div>
-          <div className="topnav-stat">
-            <span className="topnav-stat-label">P&L</span>
-            <span className={`topnav-stat-value ${pf && pf.realizedPnl >= 0 ? 'up' : 'down'}`}>
-              {pf ? `$${pf.realizedPnl.toFixed(2)}` : '—'}
-            </span>
-          </div>
-        </div>
-
-        {/* Right: settings + agent + wallet */}
         <div className="topnav-right">
-          <TradingSettings onLiveModeChange={(live) => setLiveModeState(live)} />
-
-          <div className="topnav-agent">
-            <span className={`dot ${ov?.loop.running ? 'on' : 'off'}`} />
-            <span style={{ fontSize: 11 }}>{ov?.loop.running ? `${ov.loop.cycleSeconds}s` : 'Off'}</span>
-            <button className="btn-sm go" onClick={() => postJSON('/api/agent/start')}>Start</button>
-            <button className="btn-sm danger" onClick={() => postJSON('/api/agent/stop')}>Stop</button>
-          </div>
-
+          <TradingSettings />
           <WalletConnect />
+          <a href="/admin" className="admin-gear" title="Settings">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </a>
         </div>
       </header>
 
-      {/* Page content — full width */}
+      <TickerStrip />
       <main className="main-v">
         {children}
       </main>
+      <Footer />
     </div>
   );
 }

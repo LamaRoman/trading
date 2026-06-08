@@ -1,5 +1,6 @@
 import { prisma } from '../db';
 import { log } from '../logger';
+import { getAgentConfig } from '../state';
 
 export interface OpenParams {
   assetId: number;
@@ -71,24 +72,50 @@ export function checkBracket(
   return null;
 }
 
-/** Close a paper trade and compute realized P&L. */
+/** Close a paper trade and compute realized P&L with builder fee deduction. */
 export async function closeTrade(tradeId: number, exitPrice: number, reason: string, at?: Date) {
   const t = await prisma.trade.findUnique({ where: { id: tradeId }, include: { asset: true } });
   if (!t) throw new Error(`trade ${tradeId} not found`);
 
+  const config = await getAgentConfig();
   const dirMul = t.direction === 'LONG' ? 1 : -1;
-  const pnl = (exitPrice - t.entryPrice) * t.qty * dirMul;
+  const grossPnl = (exitPrice - t.entryPrice) * t.qty * dirMul;
+  const notional = t.entryPrice * t.qty;
+
+  // Builder fee: % of notional value
+  const feePct = (config as any).builderFeePct ?? 0;
+  const builderFee = notional * (feePct / 100);
+  const referralSharePct = (config as any).referralSharePct ?? 0;
+  const referralFee = builderFee * (referralSharePct / 100);
+
+  const pnl = grossPnl - builderFee;
   const pnlPct = (exitPrice / t.entryPrice - 1) * 100 * dirMul;
 
   const closed = await prisma.trade.update({
     where: { id: tradeId },
-    data: { status: 'CLOSED', exitPrice, exitTime: at ?? new Date(), exitReason: reason, pnl, pnlPct },
+    data: {
+      status: 'CLOSED', exitPrice, exitTime: at ?? new Date(), exitReason: reason,
+      grossPnl, pnl, pnlPct, builderFee, referralFee,
+    },
     include: { asset: true },
   });
 
+  // Record fee as wallet transaction
+  if (builderFee > 0) {
+    await prisma.walletTransaction.create({
+      data: {
+        type: 'FEE',
+        amount: -builderFee,
+        balance: config.startingCapital, // approximate — actual balance derived from portfolio
+        note: `builder fee on ${t.asset.symbol} trade #${tradeId}`,
+        tradeId,
+      },
+    });
+  }
+
   log.trade(
     `CLOSE ${t.direction} ${t.leverage}x ${t.asset.symbol} @ ${exitPrice.toFixed(4)} | ` +
-    `${reason} | P&L $${pnl.toFixed(2)} (${pnlPct.toFixed(2)}%)`,
+    `${reason} | gross $${grossPnl.toFixed(2)} fee $${builderFee.toFixed(2)} net $${pnl.toFixed(2)} (${pnlPct.toFixed(2)}%)`,
   );
   return closed;
 }

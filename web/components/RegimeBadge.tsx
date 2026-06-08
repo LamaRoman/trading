@@ -18,7 +18,7 @@ const COLORS: Record<string, string> = {
   'trend-down': '#ea3943',
   ranging: '#f0b90b',
   'volatile-chop': '#ea3943',
-  squeeze: '#a855f7',
+  squeeze: '#3b9eff',
   unknown: '#8b97a8',
 };
 

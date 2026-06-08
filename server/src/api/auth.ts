@@ -122,6 +122,88 @@ authRouter.put('/me', requireAuth, h(async (req: any, res) => {
   res.json({ id: user.id, address: user.walletAddress, tradingMode: user.tradingMode });
 }));
 
+/** Generate a short unique referral code. */
+function genRefCode(): string {
+  return crypto.randomBytes(4).toString('hex').toUpperCase();
+}
+
+/** Get or generate a referral code for the current user. */
+authRouter.get('/referral', requireAuth, h(async (req: any, res) => {
+  let user = await prisma.user.findUnique({
+    where: { id: req.userId },
+    include: { referrals: { select: { id: true, walletAddress: true, createdAt: true } } },
+  });
+  if (!user) return res.status(404).json({ error: 'user not found' });
+
+  // Auto-generate code if missing
+  if (!user.referralCode) {
+    user = await prisma.user.update({
+      where: { id: req.userId },
+      data: { referralCode: genRefCode() },
+      include: { referrals: { select: { id: true, walletAddress: true, createdAt: true } } },
+    });
+  }
+
+  // Compute earnings from referred users' trades
+  const referredIds = user!.referrals.map((r) => r.id);
+  const earnings = referredIds.length > 0
+    ? await prisma.trade.aggregate({
+        _sum: { referralFee: true },
+        where: { status: 'CLOSED' },
+      })
+    : { _sum: { referralFee: 0 } };
+
+  res.json({
+    code: user!.referralCode,
+    referredBy: user!.referredById,
+    referrals: user!.referrals,
+    totalEarnings: earnings._sum.referralFee ?? 0,
+  });
+}));
+
+/** Regenerate referral code. */
+authRouter.post('/referral/regenerate', requireAuth, h(async (req: any, res) => {
+  const user = await prisma.user.update({
+    where: { id: req.userId },
+    data: { referralCode: genRefCode() },
+  });
+  res.json({ code: user.referralCode });
+}));
+
+/** Apply a referral code (link a referrer to this user). */
+authRouter.post('/referral/apply', requireAuth, h(async (req: any, res) => {
+  const { code } = req.body;
+  if (!code) return res.status(400).json({ error: 'referral code required' });
+
+  const me = await prisma.user.findUnique({ where: { id: req.userId } });
+  if (!me) return res.status(404).json({ error: 'user not found' });
+  if (me.referredById) return res.status(400).json({ error: 'already have a referrer' });
+
+  const referrer = await prisma.user.findUnique({ where: { referralCode: code.toUpperCase() } });
+  if (!referrer) return res.status(404).json({ error: 'invalid referral code' });
+  if (referrer.id === req.userId) return res.status(400).json({ error: 'cannot refer yourself' });
+
+  await prisma.user.update({
+    where: { id: req.userId },
+    data: { referredById: referrer.id },
+  });
+  res.json({ ok: true, referrer: referrer.walletAddress });
+}));
+
+/** Get platform-wide fee stats (admin). */
+authRouter.get('/fees/stats', h(async (_req, res) => {
+  const totals = await prisma.trade.aggregate({
+    _sum: { builderFee: true, referralFee: true },
+    _count: true,
+    where: { status: 'CLOSED', builderFee: { gt: 0 } },
+  });
+  res.json({
+    totalBuilderFees: totals._sum.builderFee ?? 0,
+    totalReferralFees: totals._sum.referralFee ?? 0,
+    tradesWithFees: totals._count,
+  });
+}));
+
 /** JWT middleware — attaches userId to req. */
 export function requireAuth(req: any, res: Response, next: NextFunction) {
   const header = req.headers.authorization;

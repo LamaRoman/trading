@@ -2,7 +2,8 @@
 import { useState, useEffect } from 'react';
 import {
   loginWithMetaMask, loadUser, clearSession,
-  shortAddress, type AuthUser,
+  shortAddress, captureReferral, applyPendingReferral,
+  type AuthUser,
 } from '../lib/auth';
 
 export default function WalletConnect() {
@@ -10,7 +11,10 @@ export default function WalletConnect() {
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState<string | null>(null);
 
-  useEffect(() => { setUser(loadUser()); }, []);
+  useEffect(() => {
+    setUser(loadUser());
+    captureReferral(); // store ?ref= param if present
+  }, []);
 
   async function connect() {
     setLoading(true);
@@ -18,6 +22,7 @@ export default function WalletConnect() {
     try {
       const u = await loginWithMetaMask();
       setUser(u);
+      await applyPendingReferral(); // link referrer if ?ref= was present
       window.location.reload();
     } catch (e: any) {
       setError(e.message ?? 'Connection failed');

@@ -13,6 +13,7 @@ import { getMeta, getSpotMeta, getAllMids, type HlMeta, type HlSpotMeta } from '
 import OrderBook from '../../components/OrderBook';
 import { SUPPORTED_COINS } from '../../lib/coins';
 import LongShortBar from '../../components/LongShortBar';
+import MarketInfoBar from '../../components/MarketInfoBar';
 
 
 export default function TradePage() {
@@ -341,6 +342,9 @@ export default function TradePage() {
         )}
       </div>
 
+      {/* ── Market info bar ── */}
+      {selected && <MarketInfoBar coin={selected} />}
+
       {/* ── Long/Short ratio bar ── */}
       {selected && <LongShortBar coin={selected.replace('/USD', '')} />}
 
@@ -365,11 +369,13 @@ export default function TradePage() {
               walletAddress={authUser.address}
               spotMode={isSpotMode}
               selectedCoin={selected?.replace('/USD', '') ?? ''}
+              builderFeePct={ov?.config.builderFeePct ?? 0}
             />
           ) : (
             <ManualTrade
               assets={lb.map((r) => ({ symbol: r.symbol }))}
               onTraded={() => {}}
+              builderFeePct={ov?.config.builderFeePct ?? 0}
             />
           )}
         </div>

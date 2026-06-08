@@ -14,9 +14,10 @@ interface Props {
   walletAddress: string;
   spotMode?: boolean;
   selectedCoin?: string;
+  builderFeePct?: number;
 }
 
-export default function HyperliquidPanel({ assets, walletAddress, spotMode = false, selectedCoin = '' }: Props) {
+export default function HyperliquidPanel({ assets, walletAddress, spotMode = false, selectedCoin = '', builderFeePct = 0 }: Props) {
   const [meta, setMeta] = useState<HlMeta | null>(null);
   const [spotMeta, setSpotMeta] = useState<HlSpotMeta | null>(null);
   const [account, setAccount] = useState<HlAccountState | null>(null);
@@ -387,6 +388,12 @@ export default function HyperliquidPanel({ assets, walletAddress, spotMode = fal
                     <div className="hl-summary-row">
                       <span>Stop Loss</span>
                       <span className="mono down">${parseFloat(slPrice).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {builderFeePct > 0 && (
+                    <div className="hl-summary-row">
+                      <span>Builder Fee ({builderFeePct}%)</span>
+                      <span className="mono muted">${(notional * builderFeePct / 100).toFixed(2)}</span>
                     </div>
                   )}
                 </>

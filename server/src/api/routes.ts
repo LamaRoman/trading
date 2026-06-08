@@ -94,6 +94,97 @@ api.get('/positions', h(async (_req, res) => {
   res.json(pf.positions);
 }));
 
+// ---------------------------------------------------------------------------
+// Wallet — deposit, withdraw, transaction history
+// ---------------------------------------------------------------------------
+
+/** Get wallet summary: balances + recent transactions. */
+api.get('/wallet', h(async (_req, res) => {
+  const prices = await latestPrices();
+  const pf = await getPortfolio(prices);
+  const config = await getAgentConfig();
+  const txCount = await prisma.walletTransaction.count();
+  const recentTx = await prisma.walletTransaction.findMany({
+    orderBy: { id: 'desc' }, take: 20,
+  });
+
+  // Fee totals
+  const feeTotals = await prisma.trade.aggregate({
+    _sum: { builderFee: true },
+    where: { status: 'CLOSED', builderFee: { gt: 0 } },
+  });
+
+  res.json({
+    startingCapital: config.startingCapital,
+    cash: pf.cash,
+    equity: pf.equity,
+    reservedMargin: pf.equity - pf.cash - pf.unrealizedPnl,
+    unrealizedPnl: pf.unrealizedPnl,
+    realizedPnl: pf.realizedPnl,
+    totalReturnPct: pf.totalReturnPct,
+    openPositions: pf.openCount,
+    totalFeesDeducted: feeTotals._sum.builderFee ?? 0,
+    transactionCount: txCount,
+    recentTransactions: recentTx,
+  });
+}));
+
+/** Get wallet transaction history with pagination. */
+api.get('/wallet/transactions', h(async (req, res) => {
+  const limit = Math.min(Number(req.query.limit ?? 50), 200);
+  const offset = Number(req.query.offset ?? 0);
+  const type = req.query.type as string | undefined;
+
+  const where = type ? { type: type as any } : {};
+  const [txs, total] = await Promise.all([
+    prisma.walletTransaction.findMany({
+      where, orderBy: { id: 'desc' }, take: limit, skip: offset,
+    }),
+    prisma.walletTransaction.count({ where }),
+  ]);
+  res.json({ transactions: txs, total, limit, offset });
+}));
+
+/** Deposit funds into the agent wallet. */
+api.post('/wallet/deposit', h(async (req, res) => {
+  const amount = Number(req.body?.amount);
+  if (!amount || amount <= 0) return res.status(400).json({ error: 'positive amount required' });
+  const note = String(req.body?.note ?? 'manual deposit');
+
+  const config = await getAgentConfig();
+  const newCapital = config.startingCapital + amount;
+  await prisma.agentConfig.update({ where: { id: 1 }, data: { startingCapital: newCapital } });
+
+  const tx = await prisma.walletTransaction.create({
+    data: { type: 'DEPOSIT', amount, balance: newCapital, note },
+  });
+  res.json({ ...tx, startingCapital: newCapital });
+}));
+
+/** Withdraw funds from the agent wallet. */
+api.post('/wallet/withdraw', h(async (req, res) => {
+  const amount = Number(req.body?.amount);
+  if (!amount || amount <= 0) return res.status(400).json({ error: 'positive amount required' });
+  const note = String(req.body?.note ?? 'manual withdrawal');
+
+  const prices = await latestPrices();
+  const pf = await getPortfolio(prices);
+  if (amount > pf.cash) {
+    return res.status(400).json({ error: `insufficient cash ($${pf.cash.toFixed(2)} available)` });
+  }
+
+  const config = await getAgentConfig();
+  const newCapital = config.startingCapital - amount;
+  if (newCapital < 0) return res.status(400).json({ error: 'withdrawal would make capital negative' });
+
+  await prisma.agentConfig.update({ where: { id: 1 }, data: { startingCapital: newCapital } });
+
+  const tx = await prisma.walletTransaction.create({
+    data: { type: 'WITHDRAWAL', amount: -amount, balance: newCapital, note },
+  });
+  res.json({ ...tx, startingCapital: newCapital });
+}));
+
 api.get('/leaderboard', h(async (_req, res) => {
   const lastDecision = await prisma.agentDecision.findFirst({ orderBy: { id: 'desc' } });
   if (!lastDecision) return res.json([]);
@@ -307,6 +398,9 @@ api.put('/config', h(async (req, res) => {
     'maxCycleSeconds',
     'paused',
     'startingCapital',
+    'builderFeePct',
+    'referralSharePct',
+    'builderAddress',
   ];
   const data: Record<string, unknown> = {};
   for (const k of allowed) if (k in req.body) data[k] = req.body[k];
@@ -363,28 +457,90 @@ api.post('/trades/manual', h(async (req, res) => {
   res.json({ ...trade, symbol });
 }));
 
-/** Close a manual trade. */
+/** Close a manual trade (with builder fee deduction). */
 api.post('/trades/:id/close', h(async (req, res) => {
   const id = Number(req.params.id);
   const trade = await prisma.trade.findUnique({ where: { id }, include: { asset: true } });
   if (!trade) return res.status(404).json({ error: 'trade not found' });
   if (trade.status === 'CLOSED') return res.status(400).json({ error: 'already closed' });
 
-  // Use latest price
+  const config = await getAgentConfig();
   const candle = await prisma.candle.findFirst({
     where: { assetId: trade.assetId, timeframe: '5m' },
     orderBy: { timestamp: 'desc' },
   });
   const exitPrice = candle?.close ?? trade.entryPrice;
   const dirMul = trade.direction === 'LONG' ? 1 : -1;
-  const pnl = (exitPrice - trade.entryPrice) * trade.qty * dirMul;
+  const grossPnl = (exitPrice - trade.entryPrice) * trade.qty * dirMul;
+  const notional = trade.entryPrice * trade.qty;
+  const feePct = (config as any).builderFeePct ?? 0;
+  const builderFee = notional * (feePct / 100);
+  const referralSharePct = (config as any).referralSharePct ?? 0;
+  const referralFee = builderFee * (referralSharePct / 100);
+  const pnl = grossPnl - builderFee;
   const pnlPct = (exitPrice / trade.entryPrice - 1) * 100 * dirMul;
 
   const closed = await prisma.trade.update({
     where: { id },
-    data: { status: 'CLOSED', exitPrice, exitTime: new Date(), exitReason: 'manual_close', pnl, pnlPct },
+    data: {
+      status: 'CLOSED', exitPrice, exitTime: new Date(), exitReason: 'manual_close',
+      grossPnl, pnl, pnlPct, builderFee, referralFee,
+    },
   });
   res.json({ ...closed, symbol: trade.asset.symbol });
+}));
+
+/** Add or remove margin from an open position. */
+api.post('/trades/:id/margin', h(async (req, res) => {
+  const id = Number(req.params.id);
+  const amount = Number(req.body?.amount);
+  if (!amount || !isFinite(amount)) {
+    return res.status(400).json({ error: 'amount required (positive to add, negative to remove)' });
+  }
+
+  const trade = await prisma.trade.findUnique({ where: { id }, include: { asset: true } });
+  if (!trade) return res.status(404).json({ error: 'trade not found' });
+  if (trade.status === 'CLOSED') return res.status(400).json({ error: 'trade is closed' });
+
+  const lev = trade.leverage || 1;
+  const baseMargin = (trade.entryPrice * trade.qty) / lev;
+  const currentAdded = trade.addedMargin ?? 0;
+  const newAdded = currentAdded + amount;
+  const newTotalMargin = baseMargin + newAdded;
+
+  if (newTotalMargin <= 0) {
+    return res.status(400).json({ error: 'cannot remove more margin than available' });
+  }
+
+  if (amount > 0) {
+    const prices = await latestPrices();
+    const pf = await getPortfolio(prices);
+    if (amount > pf.cash) {
+      return res.status(400).json({ error: `insufficient cash ($${pf.cash.toFixed(2)} available)` });
+    }
+  }
+
+  const updated = await prisma.trade.update({
+    where: { id },
+    data: { addedMargin: newAdded },
+  });
+
+  const notional = trade.entryPrice * trade.qty;
+  const effLev = notional / newTotalMargin;
+  const liqPrice = effLev > 1
+    ? trade.direction === 'LONG'
+      ? trade.entryPrice * (1 - 1 / effLev)
+      : trade.entryPrice * (1 + 1 / effLev)
+    : null;
+
+  res.json({
+    id: updated.id,
+    symbol: trade.asset.symbol,
+    addedMargin: newAdded,
+    totalMargin: newTotalMargin,
+    effectiveLeverage: parseFloat(effLev.toFixed(2)),
+    liqPrice,
+  });
 }));
 
 /** Mirror a Hyperliquid trade in the DB for analytics. */

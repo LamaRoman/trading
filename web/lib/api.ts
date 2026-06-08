@@ -31,6 +31,9 @@ export interface Position {
   upnlPct: number;
   entryConfidence: number;
   leverage: number;
+  effectiveLeverage: number;
+  margin: number;
+  addedMargin: number;
   stopLoss: number | null;
   takeProfit: number | null;
   liqPrice: number | null;
@@ -71,6 +74,9 @@ export interface AgentConfig {
   maxCycleSeconds: number;
   paused: boolean;
   startingCapital: number;
+  builderFeePct: number;
+  referralSharePct: number;
+  builderAddress: string;
 }
 
 export interface Overview {

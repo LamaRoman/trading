@@ -5,9 +5,10 @@ import { postJSON, API_BASE, fmtPrice, fmtUSD } from '../lib/api';
 interface Props {
   assets: { symbol: string }[];
   onTraded?: () => void;
+  builderFeePct?: number;
 }
 
-export default function ManualTrade({ assets, onTraded }: Props) {
+export default function ManualTrade({ assets, onTraded, builderFeePct = 0 }: Props) {
   const [open, setOpen]         = useState(true);
   const [symbol, setSymbol]     = useState('');
   const [direction, setDir]     = useState<'LONG' | 'SHORT'>('LONG');
@@ -119,6 +120,9 @@ export default function ManualTrade({ assets, onTraded }: Props) {
               Notional: <strong>{fmtUSD(Number(notional) * leverage)}</strong>
               {' · '}Stop loss ~{(3).toFixed(1)}%
               {' · '}Take profit ~{(6).toFixed(1)}%
+              {builderFeePct > 0 && (
+                <span className="muted"> · Fee: {fmtUSD(Number(notional) * leverage * builderFeePct / 100)} ({builderFeePct}%)</span>
+              )}
             </div>
           )}
 
