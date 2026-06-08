@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 
 interface Props {
   coin: string; // e.g. "BTC" or "BTC/USD"
+  onChangeCoin?: () => void;
 }
 
 function fmtCompact(n: number): string {
@@ -13,7 +14,7 @@ function fmtCompact(n: number): string {
   return `$${n.toFixed(2)}`;
 }
 
-export default function MarketInfoBar({ coin }: Props) {
+export default function MarketInfoBar({ coin, onChangeCoin }: Props) {
   const [data, setData] = useState<any>(null);
   const [maxLev, setMaxLev] = useState(0);
 
@@ -60,10 +61,10 @@ export default function MarketInfoBar({ coin }: Props) {
     <div className="mib-wrap">
       {/* Top row: coin + stats */}
       <div className="mib-top">
-        <div className="mib-coin">
+        <div className="mib-coin" onClick={onChangeCoin} style={onChangeCoin ? { cursor: 'pointer' } : undefined}>
           <div className="mib-avatar">{base.slice(0, 2)}</div>
           <div className="mib-coin-info">
-            <div className="mib-name">{base}-USD</div>
+            <div className="mib-name">{base}-USD <span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 4 }}>▾</span></div>
             <span className="mib-lev">{maxLev}x</span>
           </div>
           <div className="mib-price-block">

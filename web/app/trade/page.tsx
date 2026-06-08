@@ -167,20 +167,18 @@ export default function TradePage() {
         </div>
       )}
 
-      {/* ── Market selector + info bar ── */}
-      <div className="market-bar">
-        <div ref={dropRef} className="market-selector">
-          <button className="market-btn" onClick={() => setDropOpen((p) => !p)}>
-            {selected ? (
-              <>
-                <span className="market-btn-sym">{selected}</span>
-                {selRow && <span className={`badge ${selRow.direction}`}>{selRow.direction}</span>}
-              </>
-            ) : (
-              <span className="muted">Select market…</span>
-            )}
-            <span className="market-btn-arrow">▾</span>
+      {/* ── Market info + Long/Short bar (with built-in dropdown trigger) ── */}
+      <div ref={dropRef} style={{ position: 'relative' }}>
+        {selected ? (
+          <MarketInfoBar coin={selected} onChangeCoin={() => setDropOpen((p) => !p)} />
+        ) : (
+          <button className="btn" style={{ marginBottom: 10 }} onClick={() => setDropOpen((p) => !p)}>
+            Select market ▾
           </button>
+        )}
+
+        {/* Dropdown panel */}
+        <div className="market-selector">
 
           {dropOpen && (<>
             <div className="market-overlay" onClick={() => setDropOpen(false)} />
@@ -306,9 +304,6 @@ export default function TradePage() {
         </div>
 
       </div>
-
-      {/* ── Market info + Long/Short bar ── */}
-      {selected && <MarketInfoBar coin={selected} />}
 
       {/* ── Chart + Order Book + Order panel ── */}
       <div className="trade-main">
