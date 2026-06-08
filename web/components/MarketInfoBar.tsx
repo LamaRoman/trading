@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 
 interface Props {
-  coin: string; // e.g. "BTC"
+  coin: string; // e.g. "BTC" or "BTC/USD"
 }
 
 function fmtCompact(n: number): string {
@@ -42,6 +42,7 @@ export default function MarketInfoBar({ coin }: Props) {
 
   if (!data) return null;
 
+  const base = coin.replace('/USD', '');
   const mark = parseFloat(data.markPx);
   const oracle = parseFloat(data.oraclePx);
   const prev = parseFloat(data.prevDayPx);
@@ -49,61 +50,62 @@ export default function MarketInfoBar({ coin }: Props) {
   const volume = parseFloat(data.dayNtlVlm);
   const oi = parseFloat(data.openInterest) * mark;
   const funding = parseFloat(data.funding) * 100;
-  const base = coin.replace('/USD', '');
+
+  // Long/short from funding
+  const bias = Math.max(-1, Math.min(1, funding / 0.05));
+  const longPct = Math.round(50 - bias * 30);
+  const shortPct = 100 - longPct;
 
   return (
-    <div className="mib">
-      {/* Coin name + leverage badge */}
-      <div className="mib-coin">
-        <div className="mib-avatar">{base.slice(0, 2)}</div>
-        <span className="mib-name">{base}-USD</span>
-        {maxLev > 0 && <span className="mib-lev">{maxLev}x</span>}
+    <div className="mib-wrap">
+      {/* Top row: coin + stats */}
+      <div className="mib-top">
+        <div className="mib-coin">
+          <div className="mib-avatar">{base.slice(0, 2)}</div>
+          <div className="mib-coin-info">
+            <div className="mib-name">{base}-USD</div>
+            <span className="mib-lev">{maxLev}x</span>
+          </div>
+          <div className="mib-price-block">
+            <span className={`mib-mark-price ${change >= 0 ? 'up' : 'down'}`}>
+              {mark >= 1 ? `$${mark.toLocaleString('en', { maximumFractionDigits: 2 })}` : `$${mark.toFixed(6)}`}
+            </span>
+            <span className={`mib-change ${change >= 0 ? 'up' : 'down'}`}>
+              {change >= 0 ? '↑' : '↓'} {Math.abs(change).toFixed(2)}%
+            </span>
+          </div>
+        </div>
+
+        <div className="mib-stats">
+          <div className="mib-stat">
+            <span className="mib-label">Oracle</span>
+            <span className="mib-value mono">{oracle >= 1 ? oracle.toLocaleString('en', { maximumFractionDigits: 0 }) : oracle.toFixed(6)}</span>
+          </div>
+          <div className="mib-stat">
+            <span className="mib-label">24h Volume</span>
+            <span className="mib-value mono">{fmtCompact(volume)}</span>
+          </div>
+          <div className="mib-stat">
+            <span className="mib-label">Open Interest</span>
+            <span className="mib-value mono">{fmtCompact(oi)}</span>
+          </div>
+          <div className="mib-stat">
+            <span className="mib-label">Funding / 8h</span>
+            <span className={`mib-value mono ${funding >= 0 ? 'up' : 'down'}`}>
+              {funding >= 0 ? '+' : ''}{funding.toFixed(4)}%
+            </span>
+          </div>
+        </div>
       </div>
 
-      <div className="mib-sep" />
-
-      {/* Mark price */}
-      <div className="mib-stat">
-        <span className="mib-label">Mark</span>
-        <span className={`mib-value mono ${change >= 0 ? 'up' : 'down'}`}>
-          {mark >= 1 ? `$${mark.toLocaleString('en', { maximumFractionDigits: 2 })}` : `$${mark.toFixed(6)}`}
-        </span>
-      </div>
-
-      {/* Oracle */}
-      <div className="mib-stat">
-        <span className="mib-label">Oracle</span>
-        <span className="mib-value mono">
-          {oracle >= 1 ? oracle.toLocaleString('en', { maximumFractionDigits: 0 }) : oracle.toFixed(6)}
-        </span>
-      </div>
-
-      {/* 24h change */}
-      <div className="mib-stat">
-        <span className="mib-label">24h Change</span>
-        <span className={`mib-value mono ${change >= 0 ? 'up' : 'down'}`}>
-          {change >= 0 ? '+' : ''}{change.toFixed(2)}%
-        </span>
-      </div>
-
-      {/* 24h Volume */}
-      <div className="mib-stat">
-        <span className="mib-label">24h Volume</span>
-        <span className="mib-value mono">{fmtCompact(volume)}</span>
-      </div>
-
-      {/* Open Interest */}
-      <div className="mib-stat">
-        <span className="mib-label">Open Interest</span>
-        <span className="mib-value mono">{fmtCompact(oi)}</span>
-      </div>
-
-      {/* Funding */}
-      <div className="mib-stat">
-        <span className="mib-label">Funding</span>
-        <span className={`mib-value mono ${funding >= 0 ? 'up' : 'down'}`}>
-          {funding >= 0 ? '+' : ''}{funding.toFixed(4)}%
-        </span>
+      {/* Bottom row: long/short bar */}
+      <div className="mib-ls">
+        <span className="mib-ls-label up">{longPct}% Long</span>
+        <div className="mib-ls-bar">
+          <div className="mib-ls-long" style={{ width: `${longPct}%` }} />
+          <div className="mib-ls-short" style={{ width: `${shortPct}%` }} />
+        </div>
+        <span className="mib-ls-label down">{shortPct}% Short</span>
       </div>
     </div>
   );

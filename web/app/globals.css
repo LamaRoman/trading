@@ -264,41 +264,61 @@ html, body {
 .mo-gl-row:last-child { border-bottom: none; }
 .mo-gl-row:hover { background: rgba(255,255,255,.02); }
 
-/* ---- Market Info Bar (trade page) ---- */
-.mib {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 10px 16px;
+/* ---- Market Info Bar (unified: coin + stats + L/S bar) ---- */
+.mib-wrap {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 10px;
   margin-bottom: 10px;
-  overflow-x: auto;
-  scrollbar-width: none;
+  overflow: hidden;
 }
-.mib::-webkit-scrollbar { display: none; }
-.mib-coin {
-  display: flex; align-items: center; gap: 8px;
-  white-space: nowrap;
+.mib-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  gap: 20px;
 }
+.mib-coin { display: flex; align-items: center; gap: 12px; }
 .mib-avatar {
-  width: 32px; height: 32px; border-radius: 50%;
+  width: 36px; height: 36px; border-radius: 50%;
   background: linear-gradient(135deg, var(--blue), var(--green));
   display: flex; align-items: center; justify-content: center;
-  font-size: 12px; font-weight: 800; color: #fff;
-  text-transform: uppercase;
+  font-size: 13px; font-weight: 800; color: #fff;
+  text-transform: uppercase; flex-shrink: 0;
 }
-.mib-name { font-size: 16px; font-weight: 800; }
+.mib-coin-info { display: flex; flex-direction: column; gap: 3px; }
+.mib-name { font-size: 16px; font-weight: 800; line-height: 1; }
 .mib-lev {
-  font-size: 12px; font-weight: 700;
+  font-size: 11px; font-weight: 700; width: fit-content;
   background: rgba(59,158,255,.12); color: var(--blue);
-  border-radius: 4px; padding: 2px 6px;
+  border-radius: 4px; padding: 1px 6px;
 }
-.mib-sep { width: 1px; height: 28px; background: var(--border); flex-shrink: 0; }
+.mib-price-block {
+  display: flex; flex-direction: column; gap: 2px;
+  margin-left: 12px; padding-left: 16px;
+  border-left: 1px solid var(--border);
+}
+.mib-mark-price { font-size: 20px; font-weight: 800; line-height: 1.1; }
+.mib-change { font-size: 13px; font-weight: 600; }
+.mib-stats { display: flex; gap: 24px; }
 .mib-stat { display: flex; flex-direction: column; gap: 2px; white-space: nowrap; }
 .mib-label { font-size: 11px; color: var(--muted); }
 .mib-value { font-size: 14px; font-weight: 600; }
+
+/* Long/Short bar inside MIB */
+.mib-ls {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 16px 10px;
+}
+.mib-ls-label { font-size: 12px; font-weight: 600; white-space: nowrap; min-width: 64px; }
+.mib-ls-label.down { text-align: right; }
+.mib-ls-bar {
+  flex: 1; height: 5px; border-radius: 3px;
+  display: flex; overflow: hidden; gap: 2px;
+}
+.mib-ls-long { background: var(--green); height: 100%; border-radius: 3px 0 0 3px; transition: width .5s; }
+.mib-ls-short { background: var(--red); height: 100%; border-radius: 0 3px 3px 0; transition: width .5s; }
 
 /* ---- Footer ---- */
 .site-footer {

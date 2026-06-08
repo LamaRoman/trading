@@ -12,7 +12,6 @@ import type { AuthUser } from '../../lib/auth';
 import { getMeta, getSpotMeta, getAllMids, type HlMeta, type HlSpotMeta } from '../../lib/hyperliquid';
 import OrderBook from '../../components/OrderBook';
 import { SUPPORTED_COINS } from '../../lib/coins';
-import LongShortBar from '../../components/LongShortBar';
 import MarketInfoBar from '../../components/MarketInfoBar';
 
 
@@ -306,47 +305,10 @@ export default function TradePage() {
           </>)}
         </div>
 
-        {/* Coin info stats */}
-        {selRow && (
-          <div className="market-info">
-            <div className="market-info-stat">
-              <span className="market-info-label">Price</span>
-              <span className="market-info-value mono">{fmtPrice(selRow.price)}</span>
-            </div>
-            <div className="market-info-stat">
-              <span className="market-info-label">Confidence</span>
-              <span className="market-info-value" style={{ color: confColor(selRow.confidence) }}>
-                {selRow.confidence}%
-              </span>
-            </div>
-            <div className="market-info-stat">
-              <span className="market-info-label">Technical</span>
-              <span className="market-info-value">{selRow.technical}</span>
-            </div>
-            <div className="market-info-stat">
-              <span className="market-info-label">Sentiment</span>
-              <span className="market-info-value">{selRow.sentiment}</span>
-            </div>
-            <div className="market-info-stat">
-              <span className="market-info-label">Whale</span>
-              <span className="market-info-value">{selRow.whale}</span>
-            </div>
-            <div className="market-info-stat">
-              <span className="market-info-label">Momentum</span>
-              <span className="market-info-value">{selRow.momentum}</span>
-            </div>
-            <div style={{ marginLeft: 8 }}>
-              <RegimeBadge symbol={selected!} />
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* ── Market info bar ── */}
+      {/* ── Market info + Long/Short bar ── */}
       {selected && <MarketInfoBar coin={selected} />}
-
-      {/* ── Long/Short ratio bar ── */}
-      {selected && <LongShortBar coin={selected.replace('/USD', '')} />}
 
       {/* ── Chart + Order Book + Order panel ── */}
       <div className="trade-main">
