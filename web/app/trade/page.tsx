@@ -333,6 +333,7 @@ export default function TradePage() {
               assets={lb.map((r) => ({ symbol: r.symbol }))}
               onTraded={() => {}}
               builderFeePct={ov?.config.builderFeePct ?? 0}
+              selectedCoin={selected ?? ''}
             />
           )}
         </div>

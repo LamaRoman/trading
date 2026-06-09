@@ -1,16 +1,18 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { postJSON, API_BASE, fmtPrice, fmtUSD } from '../lib/api';
 
 interface Props {
   assets: { symbol: string }[];
   onTraded?: () => void;
   builderFeePct?: number;
+  selectedCoin?: string;
 }
 
-export default function ManualTrade({ assets, onTraded, builderFeePct = 0 }: Props) {
+export default function ManualTrade({ assets, onTraded, builderFeePct = 0, selectedCoin }: Props) {
   const [open, setOpen]         = useState(true);
-  const [symbol, setSymbol]     = useState('');
+  const [symbol, setSymbol]     = useState(selectedCoin ?? '');
+  useEffect(() => { if (selectedCoin) setSymbol(selectedCoin); }, [selectedCoin]);
   const [direction, setDir]     = useState<'LONG' | 'SHORT'>('LONG');
   const [notional, setNotional] = useState('');
   const [leverage, setLeverage] = useState(1);
