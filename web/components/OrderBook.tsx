@@ -24,7 +24,10 @@ function fmtSz(sz: string): string {
 
 function fmtPx(px: string): string {
   const n = parseFloat(px);
-  return n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 1 });
+  if (n >= 1000) return n.toLocaleString('en-US', { maximumFractionDigits: 1 });
+  if (n >= 1) return n.toFixed(2);
+  if (n >= 0.01) return n.toFixed(4);
+  return n.toPrecision(4);
 }
 
 function fmtTotal(total: number): string {
