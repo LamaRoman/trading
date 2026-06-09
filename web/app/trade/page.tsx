@@ -309,7 +309,7 @@ export default function TradePage() {
       <div className="trade-main">
         <div className="trade-chart">
           {selected ? (
-            <TVChart symbol={selected} height={660} />
+            <TVChart symbol={selected} height={520} />
           ) : (
             <div className="panel" style={{ height: 660, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div className="empty">Select a market to view chart</div>
