@@ -56,19 +56,19 @@ export default function ManualTrade({ assets, onTraded, builderFeePct = 0, selec
       {open && (
         <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-          {/* Asset */}
+          {/* Asset — synced from market selector */}
           <div>
             <label className="manual-label">Asset</label>
-            <select
-              className="manual-input"
-              value={symbol}
-              onChange={e => setSymbol(e.target.value)}
-            >
-              <option value="">Select asset…</option>
-              {assets.map(a => (
-                <option key={a.symbol} value={a.symbol}>{a.symbol}</option>
-              ))}
-            </select>
+            {symbol ? (
+              <div style={{
+                padding: '8px 12px', background: 'var(--panel2)', border: '1px solid var(--border)',
+                borderRadius: 8, fontSize: 15, fontWeight: 700,
+              }}>
+                {symbol.replace('/USD', '')} <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>/ USD</span>
+              </div>
+            ) : (
+              <div className="manual-input muted" style={{ padding: '8px 12px' }}>Select a market above</div>
+            )}
           </div>
 
           {/* Direction */}
