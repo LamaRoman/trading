@@ -320,6 +320,92 @@ html, body {
 .mib-ls-long { background: var(--green); height: 100%; border-radius: 3px 0 0 3px; transition: width .5s; }
 .mib-ls-short { background: var(--red); height: 100%; border-radius: 0 3px 3px 0; transition: width .5s; }
 
+/* ---- Top Traders tab buttons ---- */
+.tt-tab {
+  background: var(--panel2); border: 1px solid var(--border); color: var(--muted);
+  border-radius: 8px; padding: 8px 16px; cursor: pointer;
+  font-size: 14px; font-weight: 600; transition: all .12s;
+}
+.tt-tab:hover { color: var(--text); }
+.tt-tab.active.up {
+  background: rgba(14,203,129,.15); color: var(--green); border-color: var(--green);
+}
+.tt-tab.active.down {
+  background: rgba(246,70,93,.15); color: var(--red); border-color: var(--red);
+}
+
+/* ---- Notable Traders Cards ---- */
+.nt-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px;
+}
+.nt-card {
+  background: var(--panel2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 14px; cursor: pointer;
+  transition: all .15s;
+}
+.nt-card:hover { border-color: rgba(59,158,255,.3); }
+.nt-card.expanded { border-color: var(--blue); grid-column: 1 / -1; }
+.nt-card-header { display: flex; align-items: center; gap: 10px; }
+.nt-avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 800; color: #fff; flex-shrink: 0;
+}
+.nt-info { flex: 1; min-width: 0; }
+.nt-name { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nt-tag { font-size: 12px; color: var(--muted); }
+.nt-right { text-align: right; }
+.nt-acct { font-size: 15px; font-weight: 700; }
+.nt-pos-count { font-size: 12px; }
+.nt-stats {
+  display: flex; gap: 24px; flex-wrap: wrap;
+  margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border);
+}
+.nt-stat-item {
+  display: flex; flex-direction: column; gap: 2px; font-size: 14px;
+}
+.nt-stat-item .muted { font-size: 12px; }
+.nt-positions {
+  margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);
+  max-height: 320px; overflow-y: scroll; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ---- Trader Profile Modal ---- */
+.tp-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,.6); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.tp-modal {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 12px; padding: 24px;
+  width: 100%; max-width: 860px; max-height: 80vh; overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,.4);
+}
+.tp-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border);
+}
+.tp-name { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+.tp-close {
+  background: none; border: 1px solid var(--border); color: var(--muted);
+  width: 32px; height: 32px; border-radius: 8px; cursor: pointer;
+  font-size: 16px; display: flex; align-items: center; justify-content: center;
+  transition: all .12s;
+}
+.tp-close:hover { background: var(--panel2); color: var(--text); }
+.tp-stats {
+  display: flex; gap: 24px; flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.tp-stat { display: flex; flex-direction: column; gap: 3px; }
+.tp-stat-label { font-size: 12px; color: var(--muted); }
+.tp-stat-value { font-size: 18px; font-weight: 700; }
+
 /* ---- Footer ---- */
 .site-footer {
   background: var(--panel);
@@ -651,8 +737,9 @@ html, body {
   align-items: start;
   min-width: 0;
 }
-.trade-chart { min-width: 0; overflow: hidden; border-radius: 8px; }
-.trade-order { min-width: 0; max-height: calc(100vh - 200px); overflow-y: auto; }
+.trade-chart { min-width: 0; overflow: hidden; border-radius: 8px; height: 600px; }
+.trade-order { min-width: 0; height: 600px; overflow-y: auto; }
+.ob-panel { height: 600px; overflow-y: auto; display: flex; flex-direction: column; }
 
 /* ==========================================================================
    Intelligence page
@@ -1036,7 +1123,8 @@ tbody tr:hover { background: rgba(255,255,255,.02); }
 }
 .ob-header span:nth-child(2) { text-align: right; }
 .ob-header span:last-child { text-align: right; }
-.ob-asks, .ob-bids { display: flex; flex-direction: column; }
+.ob-asks, .ob-bids { display: flex; flex-direction: column; flex: 1; justify-content: flex-end; overflow: hidden; }
+.ob-bids { justify-content: flex-start; }
 .ob-row {
   display: grid; grid-template-columns: 1fr 1fr 1fr;
   padding: 4px 12px; font-size: 13px; position: relative; cursor: default;

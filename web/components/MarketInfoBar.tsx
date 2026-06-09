@@ -52,11 +52,6 @@ export default function MarketInfoBar({ coin, onChangeCoin }: Props) {
   const oi = parseFloat(data.openInterest) * mark;
   const funding = parseFloat(data.funding) * 100;
 
-  // Long/short from funding
-  const bias = Math.max(-1, Math.min(1, funding / 0.05));
-  const longPct = Math.round(50 - bias * 30);
-  const shortPct = 100 - longPct;
-
   return (
     <div className="mib-wrap">
       {/* Top row: coin + stats */}
@@ -99,15 +94,6 @@ export default function MarketInfoBar({ coin, onChangeCoin }: Props) {
         </div>
       </div>
 
-      {/* Bottom row: long/short bar */}
-      <div className="mib-ls">
-        <span className="mib-ls-label up">{longPct}% Long</span>
-        <div className="mib-ls-bar">
-          <div className="mib-ls-long" style={{ width: `${longPct}%` }} />
-          <div className="mib-ls-short" style={{ width: `${shortPct}%` }} />
-        </div>
-        <span className="mib-ls-label down">{shortPct}% Short</span>
-      </div>
     </div>
   );
 }

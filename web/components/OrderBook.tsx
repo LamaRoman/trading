@@ -36,7 +36,7 @@ function fmtTotal(total: number): string {
   return total.toFixed(2);
 }
 
-const ROWS = 11;
+const ROWS = 9;
 
 export default function OrderBook({ coin }: Props) {
   const [bids, setBids] = useState<Level[]>([]);

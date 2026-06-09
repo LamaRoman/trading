@@ -49,7 +49,7 @@ export default function ManualTrade({ assets, onTraded, builderFeePct = 0, selec
         style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
         onClick={() => { setOpen(p => !p); setError(null); setSuccess(null); }}
       >
-        <h2 style={{ margin: 0 }}>Manual Trade</h2>
+        <h2 style={{ margin: 0 }}>Trade</h2>
         <span style={{ color: 'var(--muted)', fontSize: 12 }}>{open ? '▲ hide' : '▼ show'}</span>
       </div>
 
@@ -102,15 +102,41 @@ export default function ManualTrade({ assets, onTraded, builderFeePct = 0, selec
 
           {/* Leverage */}
           <div>
-            <label className="manual-label">Leverage</label>
-            <div style={{ display: 'flex', gap: 4 }}>
-              {[1, 2, 3, 5, 10].map(l => (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <label className="manual-label" style={{ margin: 0 }}>Leverage</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <input
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={leverage}
+                  onChange={(e) => setLeverage(Math.max(1, Math.min(50, parseInt(e.target.value) || 1)))}
+                  style={{
+                    width: 52, textAlign: 'center', padding: '3px 4px',
+                    background: 'var(--panel2)', border: '1px solid var(--border)',
+                    borderRadius: 4, color: 'var(--text)', fontSize: 13, fontWeight: 700,
+                  }}
+                />
+                <span style={{ fontSize: 13, color: 'var(--muted)' }}>x</span>
+              </div>
+            </div>
+            <input
+              type="range"
+              min={1}
+              max={50}
+              value={leverage}
+              onChange={(e) => setLeverage(parseInt(e.target.value))}
+              className="lev-slider"
+              style={{ '--pct': ((leverage - 1) / 49) * 100 } as React.CSSProperties}
+            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+              {[1, 5, 10, 25, 50].map((v) => (
                 <button
-                  key={l}
-                  className={`lev-btn ${leverage === l ? 'active' : ''}`}
-                  onClick={() => setLeverage(l)}
+                  key={v}
+                  className={`lev-quick ${leverage === v ? 'active' : ''}`}
+                  onClick={() => setLeverage(v)}
                 >
-                  {l}x
+                  {v}x
                 </button>
               ))}
             </div>
